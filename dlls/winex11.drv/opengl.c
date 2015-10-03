@@ -299,6 +299,7 @@ static struct opengl_funcs opengl_funcs;
 
 #define USE_GL_FUNC(name) #name,
 static const char *opengl_func_names[] = { ALL_WGL_FUNCS };
+static const char *glu_func_names[] = { ALL_GLU_FUNCS };
 #undef USE_GL_FUNC
 
 static void X11DRV_WineGL_LoadExtensions(void);
@@ -567,6 +568,7 @@ static BOOL has_opengl(void)
 {
     static BOOL init_done = FALSE;
     static void *opengl_handle;
+    void *glu_handle;
 
     char buffer[200];
     int error_base, event_base;
@@ -593,6 +595,20 @@ static BOOL has_opengl(void)
             goto failed;
         }
     }
+
+#ifdef SONAME_LIBGLU
+    glu_handle = wine_dlopen(SONAME_LIBGLU, RTLD_NOW|RTLD_GLOBAL, buffer, sizeof(buffer));
+    if (glu_handle)
+    {
+        for (i = 0; i < sizeof(glu_func_names)/sizeof(glu_func_names[0]); i++)
+        {
+            if (!(((void **)&opengl_funcs.glu)[i] = wine_dlsym( glu_handle, glu_func_names[i], NULL, 0 )))
+                WARN( "%s not found in libGLU\n", glu_func_names[i] );
+        }
+    }
+    else
+        WARN( "Failed to load libGLU: %s\n", buffer );
+#endif
 
     /* redirect some standard OpenGL functions */
 #define REDIRECT(func) \
